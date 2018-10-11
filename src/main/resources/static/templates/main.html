@@ -1,0 +1,14 @@
+<div ng-controller="FeedController">
+	<div class="feed-header">
+		<h2>Last 25 Feeds of ******</h2>
+	</div>
+	<div id="mainbox">
+		<div ng-repeat="feed in feeds" class="card" ng-if="feed.story != null">
+			<img
+				src="http://media.npr.org/assets/news/2009/10/27/facebook1_sq-17f6f5e06d5742d8c53576f7c13d5cf7158202a9.jpg?s=16"
+				alt="" />
+			<h1>Name</h1>
+			<p>{{feed.story}}</p>
+		</div>
+	</div>
+</div>

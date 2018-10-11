@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
 import com.example.ssd.facebookoauthsample.data.ResourceContainer;
+import com.example.ssd.facebookoauthsample.util.ApiConstants;
 import com.example.ssd.facebookoauthsample.util.FileIO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,42 +35,37 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class AuthorizationServerController {
 
 	@RequestMapping("/friendlistviewapp/callback")
-	public void getResource(@RequestParam("code") String code)
+	public ResponseEntity<?> getResource(@RequestParam("code") String code)
 			throws JSONException, IOException {
 		FileIO fileIO = new FileIO();
 		String authorizationCode = code;
 		System.out.println("The code is = "+authorizationCode);
 		if (authorizationCode != null && authorizationCode.length() > 0) {
-			final String TOKEN_ENDPOINT = "https://graph.facebook.com/oauth/access_token";
-			final String GRANT_TYPE = "authorization_code";
-			final String REDIRECT_URI = "http://localhost:8080/friendlistviewapp/callback";
-			final String CLIENT_ID = "244993339493539";
-			final String CLIENT_SECRET = "b535677dd9e4c3a4db2ee3c9d3267d98";
+			
 			// Generate POST request
 			HttpHeaders httpHeaders = new HttpHeaders();
 			httpHeaders.set("Content-Type", "text/plain");
-			String bodyPart1 = ("grant_type="+ URLEncoder.encode(GRANT_TYPE, StandardCharsets.UTF_8.name()));
-			String bodyPart2 = ("redirect_uri="+ URLEncoder.encode(REDIRECT_URI, StandardCharsets.UTF_8.name()));
+			String bodyPart1 = ("grant_type="+ URLEncoder.encode(ApiConstants.GRANT_TYPE, StandardCharsets.UTF_8.name()));
+			String bodyPart2 = ("redirect_uri="+ URLEncoder.encode(ApiConstants.REDIRECT_URI, StandardCharsets.UTF_8.name()));
 			String bodyPart3 = ("code="+ URLEncoder.encode(authorizationCode, StandardCharsets.UTF_8.name()));
-			String bodyPart4 = ("client_id="+ URLEncoder.encode(CLIENT_ID, StandardCharsets.UTF_8.name()));
+			String bodyPart4 = ("client_id="+ URLEncoder.encode(ApiConstants.CLIENT_ID, StandardCharsets.UTF_8.name()));
 
 			String body=(bodyPart1+"&"+bodyPart2+"&"+bodyPart3+"&"+bodyPart4);
 			
 			// Add "Authorization" header with encoded client credentials
-			String clientCredentials = CLIENT_ID + ":" + CLIENT_SECRET;
+			String clientCredentials = ApiConstants.CLIENT_ID + ":" + ApiConstants.CLIENT_SECRET;
 			String encodedClientCredentials = new String(Base64.encodeBase64(clientCredentials.getBytes()));
 			httpHeaders.set("Authorization", "Basic " + encodedClientCredentials);
 			// Make the access token request
 			HttpEntity<String> httpEntity = new HttpEntity<String>(body, httpHeaders);
 			RestTemplate restTemplate = new RestTemplate();
-			String responce = restTemplate.postForObject(TOKEN_ENDPOINT, httpEntity, String.class);
+			String responce = restTemplate.postForObject(ApiConstants.TOKEN_ENDPOINT, httpEntity, String.class);
 
 			// Handle access token response
 			JSONObject responceObj = new JSONObject(responce);
 			// Isolate access token
 			String accessToken = null;
 
-			System.out.println("Found Responce Object : "+responceObj);
 			try {
 				
 				accessToken = responceObj.get("access_token").toString();
@@ -94,21 +90,33 @@ public class AuthorizationServerController {
  			ObjectMapper mapper = new ObjectMapper();
  			JsonNode root = mapper.readTree(dataResponce.getBody());
  			JsonNode data = root.path("data");
- 			System.out.println("The Details = "+data.asText());
-			// Generate a unique key
-			int randomNum = ThreadLocalRandom.current().nextInt(1, 9999999);
-			// Add the facebook response data to the resources map along with
-			// the key
-			ResourceContainer.getInstance().addResource(String.valueOf(randomNum), data);
+ 			
+ 			RestTemplate idRestTemplate = new RestTemplate();
+			HttpHeaders idkenHeader = new HttpHeaders();
+			tokenHeader.add("Authorization", "Bearer " + accessToken);
+			HttpEntity<?> idHttpEntiy = new HttpEntity<>(tokenHeader);
+ 			ResponseEntity<String> idResponce = dataRestTemplate.exchange(ApiConstants.ID_FEILD_ENDPOINT, HttpMethod.GET,dataHttpEntiy,String.class);
+			
+ 			JsonNode idRoot = mapper.readTree(idResponce.getBody());
+ 			JsonNode idData = idRoot.path("id");
+ 			System.out.println("USER_ID = "+idData.asText());
+ 			
+ 			
+ 			ResponseEntity<String> friendListResponce = dataRestTemplate.exchange(ApiConstants.GRAPH_ENDPOINT+idData.asText()+ApiConstants.TAGGABLE_FRIEMDS, HttpMethod.GET,dataHttpEntiy,String.class);
+			
+ 			JsonNode friendListRoot = mapper.readTree(friendListResponce.getBody());
+ 			JsonNode friendListData = friendListRoot.path("data");
+ 			
+			
+			ResourceContainer.getInstance().addResource(String.valueOf("feed"), data);
 
 			fileIO.writeToFile(data.asText());
-
+			
+			return new ResponseEntity<>(HttpStatus.OK);
 		
 
-			
-
 		} else {
-			// Handle failure
+			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 		}
 	}
 	
@@ -118,5 +126,7 @@ public class AuthorizationServerController {
 		return new ResponseEntity<>(detailsNode.values(),HttpStatus.OK);
 	
 	}
+	
+	
 
 }

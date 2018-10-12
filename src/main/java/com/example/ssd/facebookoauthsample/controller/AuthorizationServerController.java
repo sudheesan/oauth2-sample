@@ -56,6 +56,7 @@ public class AuthorizationServerController {
 			String clientCredentials = ApiConstants.CLIENT_ID + ":" + ApiConstants.CLIENT_SECRET;
 			String encodedClientCredentials = new String(Base64.encodeBase64(clientCredentials.getBytes()));
 			httpHeaders.set("Authorization", "Basic " + encodedClientCredentials);
+			
 			// Make the access token request
 			HttpEntity<String> httpEntity = new HttpEntity<String>(body, httpHeaders);
 			RestTemplate restTemplate = new RestTemplate();
@@ -66,11 +67,8 @@ public class AuthorizationServerController {
 			// Isolate access token
 			String accessToken = null;
 
-			try {
-				
+			try {				
 				accessToken = responceObj.get("access_token").toString();
-				System.out.println("Access token: " + accessToken);
-
 				fileIO.writeToFile(accessToken);
 
 			} catch (JsonParseException e) {
@@ -79,37 +77,24 @@ public class AuthorizationServerController {
 
 			// Request profile and feed data with access token
 			// Request feed data with access token
-			String requestUrl = "https://graph.facebook.com/v2.10/me/feed?limit=25";
 
 			RestTemplate dataRestTemplate = new RestTemplate();
 			HttpHeaders tokenHeader = new HttpHeaders();
 			tokenHeader.add("Authorization", "Bearer " + accessToken);
 			HttpEntity<?> dataHttpEntiy = new HttpEntity<>(tokenHeader);
- 			ResponseEntity<String> dataResponce = dataRestTemplate.exchange(requestUrl, HttpMethod.GET,dataHttpEntiy,String.class);
+ 			ResponseEntity<String> dataResponce = dataRestTemplate.exchange(ApiConstants.FEED_REQUEST_URI, HttpMethod.GET,dataHttpEntiy,String.class);
 			
  			ObjectMapper mapper = new ObjectMapper();
  			JsonNode root = mapper.readTree(dataResponce.getBody());
  			JsonNode data = root.path("data");
  			
- 			RestTemplate idRestTemplate = new RestTemplate();
-			HttpHeaders idkenHeader = new HttpHeaders();
-			tokenHeader.add("Authorization", "Bearer " + accessToken);
-			HttpEntity<?> idHttpEntiy = new HttpEntity<>(tokenHeader);
+ 			//Request user profile id
  			ResponseEntity<String> idResponce = dataRestTemplate.exchange(ApiConstants.ID_FEILD_ENDPOINT, HttpMethod.GET,dataHttpEntiy,String.class);
-			
  			JsonNode idRoot = mapper.readTree(idResponce.getBody());
  			JsonNode idData = idRoot.path("id");
- 			System.out.println("USER_ID = "+idData.asText());
  			
- 			
- 			ResponseEntity<String> friendListResponce = dataRestTemplate.exchange(ApiConstants.GRAPH_ENDPOINT+idData.asText()+ApiConstants.TAGGABLE_FRIEMDS, HttpMethod.GET,dataHttpEntiy,String.class);
-			
- 			JsonNode friendListRoot = mapper.readTree(friendListResponce.getBody());
- 			JsonNode friendListData = friendListRoot.path("data");
- 			
-			
+ 			//Persisting feed resource
 			ResourceContainer.getInstance().addResource(String.valueOf("feed"), data);
-
 			fileIO.writeToFile(data.asText());
 			
 			return new ResponseEntity<>(HttpStatus.OK);
@@ -120,6 +105,7 @@ public class AuthorizationServerController {
 		}
 	}
 	
+	 
 	@RequestMapping("/friendlistviewapp/feed")
 	public ResponseEntity<?> getAllFeeds(){
 		HashMap<String, JsonNode> detailsNode = (HashMap<String, JsonNode>) ResourceContainer.getInstance().getAllResources();
